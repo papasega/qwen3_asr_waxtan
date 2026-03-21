@@ -1,0 +1,6 @@
+[submodule "Qwen3-ASR"]
+	path = Qwen3-ASR
+	url = https://github.com/QwenLM/Qwen3-ASR.git
+[submodule "qwen-asr"]
+	path = qwen-asr
+	url = https://github.com/antirez/qwen-asr.git
