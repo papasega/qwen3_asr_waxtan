@@ -1,0 +1,6 @@
+numpy>=1.24
+sounddevice>=0.4.6
+resemblyzer>=0.1.4
+langid>=1.1.6
+# webrtcvad (pulled by resemblyzer) still imports pkg_resources
+setuptools<81
