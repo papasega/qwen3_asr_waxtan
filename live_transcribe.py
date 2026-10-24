@@ -60,8 +60,11 @@ def mic_blocks(device):
     with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="int16",
                         blocksize=BLOCK, device=device,
                         callback=lambda data, *_: q.put(data[:, 0].copy())):
-        while True:
-            yield q.get()
+        try:
+            while True:
+                yield q.get()
+        except KeyboardInterrupt:  # end the stream so the turn in progress is still flushed
+            pass
 
 
 def file_blocks(path: str):
@@ -105,7 +108,9 @@ def transcribe(audio: np.ndarray, asr_bin: str, model_dir: str, language: str | 
     cmd = [asr_bin, "-d", model_dir, "--stdin", "--silent"]
     if language:
         cmd += ["--language", language]
-    out = subprocess.run(cmd, input=audio.tobytes(), capture_output=True, timeout=120)
+    # Own session: Ctrl+C in the terminal must not kill the turn being transcribed.
+    out = subprocess.run(cmd, input=audio.tobytes(), capture_output=True, timeout=120,
+                         start_new_session=True)
     if out.returncode != 0:
         print(f"  [asr error] {out.stderr.decode(errors='replace').strip()}", file=sys.stderr)
         return ""
@@ -151,16 +156,16 @@ def main() -> None:
                 print(f"[{int(t // 60):02d}:{int(t % 60):02d}] {who} ({lang}): {text}",
                       flush=True)
 
-    thread = threading.Thread(target=worker)
+    thread = threading.Thread(target=worker, daemon=True)
     thread.start()
     try:
         for t, audio in utterances(blocks, threshold, args.silence, args.max_segment, 0.5):
             turns.put((offset + t, audio))
-    except KeyboardInterrupt:
-        pass
-    finally:
         turns.put(None)
         thread.join()
+    except KeyboardInterrupt:
+        pass
+    print("\nEnd of the transcription.", file=sys.stderr)
 
 
 if __name__ == "__main__":
